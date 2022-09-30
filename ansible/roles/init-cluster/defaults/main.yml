@@ -1,0 +1,7 @@
+---
+domain: foo.local
+cluster_name: bar
+pull_secret: "pull-secret"
+ssh_pub_key: "ed25519...."
+
+nexus_repo_url: ""

@@ -1,0 +1,78 @@
+---
+- set_fact:
+      home: "{{ lookup('env', 'HOME') }}"
+      nexus_username: "{{ lookup('env', 'TF_VAR_nexus_username') }}"
+      nexus_password: "{{ lookup('env', 'TF_VAR_nexus_pass') }}"
+      bootstrap_files:
+        - worker.ign
+        - master.ign
+        - bootstrap.ign
+        - auth/kubeconfig
+        - auth/kubeadmin-password
+        - metadata.json
+
+- name: Check if cluster configuration already exists on Nexus Raw repository
+  uri:
+    url: "{{ nexus_repo_url }}/{{ cluster_name }}/metadata.json"
+    url_username: "{{ nexus_username }}"
+    url_password: "{{ nexus_password }}"
+    return_content: yes
+  register: cluster_metadata
+  ignore_errors: true
+
+- fail:
+    msg: "Empty <cluster_name>!!!"
+  when: cluster_name is not defined or cluster_name == ''
+
+
+- block:
+    - name: Remove old cluster install-config.yaml
+      file:
+        path: "{{ home }}/install-config.yaml"
+        state: absent
+
+    - name: Remove old cluster installation directory
+      file:
+        path: "{{ home }}/{{ cluster_name }}"
+        state: absent
+
+    - name: Rendering cluster install-config.yaml
+      template:
+           src: "install-config.yaml"
+           dest: "{{ home }}/install-config.yaml"
+
+    - name: Create cluster installation directory
+      file:
+        state: directory
+        path: "{{ home }}/{{ cluster_name }}"
+
+    - name: Copy cluster config to installation directory
+      copy:
+        src: "{{ home }}/install-config.yaml"
+        dest: "{{ home }}/{{ cluster_name }}"
+
+    - name: Create ignition
+      shell: openshift-install create ignition-configs --dir={{ home }}/{{ cluster_name }}
+      changed_when: false
+
+    - name: Upload install-config.yaml to Nexus RAW repository
+      shell: curl -L -f --silent -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ home }}/install-config.yaml {{ nexus_repo_url }}/{{ cluster_name }}/install-config.yaml
+      args:
+         warn: false
+      no_log: true
+
+    - name: Upload bootstrap files to Nexus RAW repository
+      shell: curl -L -f --silent -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ home }}/{{ cluster_name }}/{{ bootstrap_file }}  {{ nexus_repo_url }}/{{ cluster_name }}/{{ bootstrap_file }}
+      args:
+        warn: false
+      loop: "{{ bootstrap_files }}"
+      loop_control:
+             loop_var:  bootstrap_file
+      no_log: true
+  when: cluster_metadata.status == 404
+
+
+
+
+
+

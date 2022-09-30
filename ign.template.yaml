@@ -1,0 +1,94 @@
+ignition:
+  config:
+    append:
+      - verification: {}
+        source: "${ignUrl}"
+
+passwd:
+  users:
+    - name: core
+      password_hash: ${core_user_password_hash}
+      ssh_authorized_keys:
+        - "${ssh_pub_key}"
+
+storage:
+  disks:
+    - device: ${cri_storage_disk}
+      wipe_table: true
+      partitions:
+        - label: ${cri_storage_label}
+
+  filesystems:
+    - name: ${cri_storage_label}
+      mount:
+        device: "/dev/disk/by-partlabel/${cri_storage_label}"
+        format: "xfs"
+        label: "${cri_storage_label}"
+        create:
+          force: true
+
+
+  files:
+    - path: /etc/sysconfig/network-scripts/ifcfg-ens192
+      filesystem: root
+      contents:
+        inline: |
+          TYPE=Ethernet
+          BOOTPROTO=none
+          NAME=ens192
+          DEVICE=ens192
+          ONBOOT=yes
+          IPADDR=${addr}
+          PREFIX=${mask}
+          GATEWAY=${gateway}
+          DOMAIN=${domain}
+          DNS1=${dns1}
+          DNS2=${dns2}
+
+      mode: 0644
+      user:
+        id: 0
+      group:
+        id: 0
+
+    - path: /etc/hostname
+      filesystem: root
+      contents:
+        inline: ${hostname}
+
+      mode: 0644
+      user:
+        id: 0
+      group:
+        id: 0
+
+    - path: /etc/hosts
+      filesystem: root
+      contents:
+        inline: |
+          127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+          ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+          127.0.0.1  ${hostname}.${domain}   ${hostname}
+
+      mode: 0644
+      user:
+        id: 0
+      group:
+        id: 0
+
+systemd:
+  units:
+  - name: "${cri_mount_systemd_unit_name}.mount"
+    enabled: true
+    contents: |
+      [Unit]
+      Description=Mount CRI dedicated disk to /var/lib/containers/storage
+      Before=local-fs.target
+
+      [Mount]
+      What=/dev/disk/by-label/${cri_storage_label}
+      Where=${cri_storage_path}
+      Type=xfs
+
+      [Install]
+      WantedBy=local-fs.target

@@ -1,0 +1,16 @@
+apiVersion: v1
+baseDomain: {{ domain }}
+compute:
+  - hyperthreading: Enabled
+    name: worker
+    replicas: 0
+controlPlane:
+  hyperthreading: Enabled
+  name: master
+  replicas: 3
+metadata:
+  name: {{ cluster_name }}
+platform:
+      none: {}
+pullSecret:  {{ pull_secret | to_json }}
+sshKey:  {{ ssh_pub_key }}

@@ -1,0 +1,2 @@
+After successful cluster installation or added new nodes, you need to approve CSR for worker nodes:
+```oc get csr -ojson | jq -r '.items[] | select(.status == {} ) | .metadata.name' | xargs oc adm certificate approve```    - для апрува всех CSR .
